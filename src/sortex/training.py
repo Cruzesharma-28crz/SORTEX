@@ -10,6 +10,7 @@ from torchvision.datasets import ImageFolder
 from sortex.data.layout import validate_dataset
 from sortex.labels import CLASSES
 from sortex.vision.checkpoint import save_checkpoint
+from sortex.vision.model import SortexCNN
 from sortex.vision.transforms import inference_transform, training_transform
 
 
@@ -47,7 +48,7 @@ def train(data: str, output: str, epochs: int = 30, batch_size: int = 32) -> Non
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=0)
-    model = __import__("sortex.vision.model", fromlist=["SortexCNN"]).SortexCNN().to(device)
+    model = SortexCNN().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0001)
     loss_fn = nn.CrossEntropyLoss()
     best_score = -1.0

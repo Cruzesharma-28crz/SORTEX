@@ -3,8 +3,8 @@ import pytest
 from sortex.labels import CLASSES, validate_class
 
 
-def test_class_order_is_stable():
-    assert CLASSES == ("e_waste", "dry_waste", "wet_waste")
+def test_class_order_matches_imagefolder():
+    assert CLASSES == ("dry_waste", "e_waste", "wet_waste")
 
 
 @pytest.mark.parametrize("label", CLASSES)
