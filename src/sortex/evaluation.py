@@ -28,15 +28,39 @@ def evaluate(data: str, checkpoint: str) -> dict:
             predictions = model(images.to(device)).argmax(1).cpu()
             for actual, predicted in zip(labels.tolist(), predictions.tolist(), strict=True):
                 matrix[actual][predicted] += 1
+
     metrics = {}
     total = sum(map(sum, matrix))
     correct = sum(matrix[i][i] for i in range(len(CLASSES)))
     for index, label in enumerate(CLASSES):
-        tp = matrix[index][index]
-        fp = sum(matrix[row][index] for row in range(len(CLASSES))) - tp
-        fn = sum(matrix[index]) - tp
-        precision = tp / (tp + fp) if tp + fp else 0.0
-        recall = tp / (tp + fn) if tp + fn else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-        metrics[label] = {"precision": precision, "recall": recall, "f1": f1, "support": sum(matrix[index])}
-    return {"accuracy": correct / total if total else 0.0, "samples": total, "classes": metrics, "confusion_matrix": matrix}
+        true_positive = matrix[index][index]
+        false_positive = sum(matrix[row][index] for row in range(len(CLASSES))) - true_positive
+        false_negative = sum(matrix[index]) - true_positive
+        precision = (
+            true_positive / (true_positive + false_positive)
+            if true_positive + false_positive
+            else 0.0
+        )
+        recall = (
+            true_positive / (true_positive + false_negative)
+            if true_positive + false_negative
+            else 0.0
+        )
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall
+            else 0.0
+        )
+        metrics[label] = {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "support": sum(matrix[index]),
+        }
+
+    return {
+        "accuracy": correct / total if total else 0.0,
+        "samples": total,
+        "classes": metrics,
+        "confusion_matrix": matrix,
+    }
