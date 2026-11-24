@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -106,6 +107,6 @@ def download_model(model_id: str, principal: Principal = Depends(device)) -> Fil
         return FileResponse(path, filename=f"sortex-{model.version}.zip", media_type="application/zip")
 
 
-portal_dir = Path(__file__).resolve().parents[2] / "portal"
+portal_dir = Path(os.getenv("SORTEX_PORTAL_DIR", str(Path(__file__).resolve().parents[2] / "portal")) )
 if portal_dir.is_dir():
     app.mount("/portal", StaticFiles(directory=portal_dir, html=True), name="portal")
