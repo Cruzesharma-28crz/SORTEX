@@ -28,7 +28,7 @@ def train_dataset(job_id: str) -> dict:
         version = f"0.1.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{job_id[:8]}"
         folder = output / job_id; folder.mkdir(parents=True, exist_ok=True)
         shutil.copy2(checkpoint, folder / "model.pt")
-        metadata = {"format_version": 1, "sortex_version": "0.1.0", "model_version": version, "classes": ["dry_waste", "e_waste", "wet_waste"], "image_size": 160, "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}, "confidence_threshold": settings.model_confidence_threshold, "metrics": metrics}
+        metadata = {"format_version": 1, "sortex_version": "0.2.0", "model_version": version, "classes": ["dry_waste", "e_waste", "wet_waste"], "image_size": 160, "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}, "confidence_threshold": settings.model_confidence_threshold, "metrics": metrics}
         (folder / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         (folder / "labels.json").write_text(json.dumps(metadata["classes"], indent=2), encoding="utf-8")
         bundle = output / f"{job_id}.zip"
