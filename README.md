@@ -1,80 +1,68 @@
 # SORTEX
 
-**SORTEX** classifies waste images into three classes: `e_waste`, `dry_waste`, and `wet_waste`.
+SORTEX is a hybrid cloud-edge waste-classification research platform. The cloud collects and manages datasets, trains and evaluates the custom CNN, and publishes approved model bundles. A Raspberry Pi downloads approved bundles and performs local inference offline.
 
-This is a research prototype built around a custom CNN trained on SORTEX-collected images. An ESP32-class camera is the planned image source and a Raspberry Pi is the planned inference computer. Camera transport and physical actuation are not finalized.
-
-> **Status:** software foundation. No dataset, trained weights, camera firmware, or validated hardware controller is included. Predictions are not safety-critical decisions.
+**Current status:** software foundation and API/worker/edge implementation. No dataset, trained weights, cloud credentials, camera transport or validated hardware controller is included. Model outputs are not safety-critical decisions.
 
 ## Architecture
 
-```text
-Camera node (planned) -> image transport (TBD) -> SORTEX inference
-                                                   |
-                                                   v
-                                        class + confidence
-                                                   |
-                                                   v
-                                       coordinator (dry-run)
-```
+- Cloud API: FastAPI, role-scoped API keys, dataset intake, training orchestration and model registry.
+- Data services: PostgreSQL metadata, persistent artifact storage, Redis/Celery training queue.
+- Training worker: reuses the custom PyTorch CNN and optionally evaluates a held-out test split.
+- Edge client: downloads approved model bundles, verifies SHA-256 and runs local inference.
 
-Training happens on a development computer. A trained checkpoint can later be benchmarked on the target Pi.
+See docs/HYBRID_ARCHITECTURE.md for the full lifecycle and deployment notes.
 
-## Install
+## Install the existing CLI
 
-Python 3.10+ is recommended. Create a virtual environment, install a suitable PyTorch/Torchvision build for your platform, then install SORTEX:
+Python 3.10+ is required. Install a suitable PyTorch/Torchvision build for your platform, then:
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[dev]"
-```
+    python -m venv .venv
+    # Windows: .venv\\Scripts\\activate
+    # Linux/macOS: source .venv/bin/activate
+    python -m pip install --upgrade pip
+    pip install -e ".[dev]"
 
-## Dataset layout
+## Run the cloud stack
 
-Keep train, validation, and test sets separate. The test set must not be used for training or model selection.
+Copy .env.example to .env and replace every placeholder with unique secrets. Then run:
 
-```text
-data/waste/
-  train/{e_waste,dry_waste,wet_waste}/
-  val/{e_waste,dry_waste,wet_waste}/
-  test/{e_waste,dry_waste,wet_waste}/
-```
+    docker compose -f deploy/docker-compose.yml up --build
 
-Use varied objects, backgrounds, lighting, orientations, and distances. Split by physical object or collection session where possible to reduce leakage. Do not include faces or personal information.
+API docs are at http://localhost:8000/docs and health at http://localhost:8000/health.
 
-## Commands
+Install server and edge extras for local development:
 
-```bash
-sortex train --data data/waste --output artifacts/sortex-cnn.pt --epochs 30
-sortex evaluate --data data/waste/test --checkpoint artifacts/sortex-cnn.pt
-sortex predict path/to/image.jpg --checkpoint artifacts/sortex-cnn.pt
-sortex simulate --class dry_waste --confidence 0.94
-```
+    pip install -e ".[server,edge,dev]"
 
-The custom CNN is in `src/sortex/vision/model.py`. Class order is centralized in `src/sortex/labels.py` and saved in checkpoints. Evaluation reports a confusion matrix and per-class precision, recall, and F1. Do not publish accuracy claims until a representative held-out test set has been evaluated.
+The API uses X-API-Key. Configure separate contributor, trainer, admin and device keys in SORTEX_API_KEYS_JSON. Never put privileged keys in browser code or commit a real .env file.
 
-## Development
+## Edge client
 
-```bash
-pytest
-ruff check .
-ruff format --check .
-```
+Set SORTEX_API_URL and SORTEX_DEVICE_API_KEY on the Pi, then:
 
-## Roadmap
+    sortex-edge sync
+    sortex-edge predict path/to/image.jpg
 
-1. Collect and review a balanced dataset.
-2. Train and evaluate the baseline CNN with reproducible settings.
-3. Finalize a versioned camera transport contract after choosing the camera.
-4. Benchmark inference on the exact Raspberry Pi model.
-5. Validate mechanical and electrical safety independently before considering physical actuation.
+After synchronization, prediction runs locally and does not require internet access.
 
-## Safety boundaries
+## Existing model commands
 
-- The coordinator is simulation-only. There is no GPIO or motor-control implementation.
-- Low-confidence/unknown predictions must be rejected for human review.
-- Never connect actuators based solely on a model prediction.
-- Keep moving mechanisms isolated during software development.
+    sortex train --data data/waste --output artifacts/sortex-cnn.pt --epochs 30
+    sortex evaluate --data data/waste/test --checkpoint artifacts/sortex-cnn.pt
+    sortex predict path/to/image.jpg --checkpoint artifacts/sortex-cnn.pt
+    sortex simulate --class dry_waste --confidence 0.94
+
+## Development checks
+
+    ruff check .
+    ruff format --check .
+    pytest
+
+## Safety and limitations
+
+- Cloud artifact storage is a persistent filesystem volume in this first implementation. Back it up; multi-host deployments need shared object storage.
+- API keys provide an initial trusted-team access model, not full user identity management. Add per-user auth, revocation, rate limiting and audit logs before public use.
+- Training needs a suitable cloud CPU/RAM machine; the worker is isolated from the API.
+- No dataset or trained model is bundled. Do not claim accuracy before representative held-out testing.
+- No camera protocol, GPIO, motor control or physical actuation is implemented. Keep actuation separate and independently safeguarded.
