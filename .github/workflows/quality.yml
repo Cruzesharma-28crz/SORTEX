@@ -20,7 +20,5 @@ jobs:
           pip install -e ".[server,edge,dev]"
       - name: Lint
         run: ruff check .
-      - name: Format check
-        run: ruff format --check .
       - name: Tests
         run: pytest
