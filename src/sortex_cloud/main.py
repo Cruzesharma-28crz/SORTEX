@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse\nfrom fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sortex.labels import CLASSES, validate_class
@@ -103,3 +103,4 @@ def download_model(model_id: str, principal: Principal = Depends(device)) -> Fil
         path = Path(model.bundle_path)
         if not path.is_file(): raise HTTPException(status_code=410, detail="Bundle unavailable")
         return FileResponse(path, filename=f"sortex-{model.version}.zip", media_type="application/zip")
+\n\nportal_dir = Path(__file__).resolve().parents[2] / "portal"\nif portal_dir.is_dir():\n    app.mount("/portal", StaticFiles(directory=portal_dir, html=True), name="portal")\n
