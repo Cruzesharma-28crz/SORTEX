@@ -56,7 +56,6 @@ After synchronization, prediction runs locally and does not require internet acc
 ## Development checks
 
     ruff check .
-    ruff format --check .
     pytest
 
 ## Safety and limitations
