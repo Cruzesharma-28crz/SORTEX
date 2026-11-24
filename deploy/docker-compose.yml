@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sortex
+      POSTGRES_USER: sortex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sortex -d sortex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    volumes: [redis_data:/data]
+  api:
+    build: {context: .., dockerfile: deploy/Dockerfile}
+    command: uvicorn sortex_cloud.main:app --host 0.0.0.0 --port 8000
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://sortex:${POSTGRES_PASSWORD}@db:5432/sortex
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ROOT: /var/sortex
+    volumes: [sortex_storage:/var/sortex]
+    ports: ["8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+  worker:
+    build: {context: .., dockerfile: deploy/Dockerfile}
+    command: celery -A sortex_cloud.queue.celery_app worker --loglevel=INFO --concurrency=1
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://sortex:${POSTGRES_PASSWORD}@db:5432/sortex
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ROOT: /var/sortex
+    volumes: [sortex_storage:/var/sortex]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+volumes:
+  postgres_data:
+  redis_data:
+  sortex_storage:
