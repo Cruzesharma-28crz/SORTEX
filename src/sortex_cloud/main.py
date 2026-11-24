@@ -31,7 +31,7 @@ class DatasetCreate(BaseModel):
 class TrainingCreate(BaseModel):
     dataset_id: str
     epochs: int = Field(default=30, ge=1, le=200)
-    batch_size: int = Field(default=16, ge=1, le=128)
+    batch_size: int = Field(default=8, ge=1, le=64)
 
 
 @app.get("/health")
