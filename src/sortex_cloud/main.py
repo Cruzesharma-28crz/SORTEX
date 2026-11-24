@@ -54,7 +54,7 @@ async def upload_image(dataset_id: str, label: str, file: UploadFile = File(...)
 @app.get("/v1/datasets")
 def list_datasets(principal: Principal = Depends(contributor)) -> list[dict]:
     with SessionLocal() as db:
-        rows = db.scalars(select(Dataset).where(Dataset.owner == principal.owner)).all()
+        query = select(Dataset) if principal.role in {"trainer", "admin"} else select(Dataset).where(Dataset.owner == principal.owner)\n        rows = db.scalars(query).all()
         return [{"id": row.id, "name": row.name, "created_at": row.created_at.isoformat()} for row in rows]
 @app.post("/v1/training", status_code=202)
 def start_training(payload: TrainingCreate, principal: Principal = Depends(trainer)) -> dict:
@@ -63,7 +63,7 @@ def start_training(payload: TrainingCreate, principal: Principal = Depends(train
         if dataset is None: raise HTTPException(status_code=404, detail="Dataset not found")
         if dataset.owner != principal.owner and principal.role not in {"admin", "trainer"}: raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
         root = dataset_dir(dataset.id)
-        missing = [part for part in ("train", "val") if not any((root / part / label).glob("*") for label in CLASSES)]
+        missing = [f"{part}/{label}" for part in ("train", "val") for label in CLASSES if not any((root / part / label).glob("*"))]
         if missing: raise HTTPException(status_code=422, detail=f"Missing images in: {', '.join(missing)}")
         job = TrainingJob(dataset_id=dataset.id, status="queued", epochs=payload.epochs, batch_size=payload.batch_size, created_by=principal.owner)
         db.add(job); db.commit(); db.refresh(job); celery_app.send_task("sortex.train_dataset", args=[job.id])
