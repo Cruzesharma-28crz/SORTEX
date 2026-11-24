@@ -23,8 +23,8 @@ def train_dataset(job_id: str) -> dict:
     checkpoint = output / f"{job_id}.pt"
     try:
         train(str(root), str(checkpoint), epochs=epochs, batch_size=batch_size)
-        metrics = evaluate(str(root / "test"), str(checkpoint)) if (root / "test").exists() else {}
-        version = f"0.1.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        has_test = all(any((root / "test" / label).glob("*")) for label in ("dry_waste", "e_waste", "wet_waste"))\n        metrics = evaluate(str(root / "test"), str(checkpoint)) if has_test else {}
+        version = f"0.1.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{job_id[:8]}"
         folder = output / job_id; folder.mkdir(parents=True, exist_ok=True)
         shutil.copy2(checkpoint, folder / "model.pt")
         metadata = {"format_version": 1, "sortex_version": "0.1.0", "model_version": version, "classes": ["dry_waste", "e_waste", "wet_waste"], "image_size": 160, "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}, "confidence_threshold": settings.model_confidence_threshold, "metrics": metrics}
