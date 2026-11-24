@@ -1,0 +1,65 @@
+# SORTEX cloud deployment. Review service plans and required secrets before applying.
+# Render Free is suitable for API smoke tests only; free instances may sleep/restart.
+# Background workers are paid on Render. Start with the smallest worker plan only for
+# small test datasets; larger training runs need more memory/CPU.
+services:
+  - type: web
+    name: sortex-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./deploy/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sortex-queue
+          property: connectionString
+      - key: SUPABASE_URL
+        value: https://ikdxchgcauhjznhofvog.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: sortex-assets
+      - key: SORTEX_API_KEYS_JSON
+        sync: false
+      - key: MAX_UPLOAD_MB
+        value: "12"
+      - key: MODEL_CONFIDENCE_THRESHOLD
+        value: "0.65"
+  - type: worker
+    name: sortex-trainer
+    runtime: docker
+    plan: 0.5c-512mb
+    region: singapore
+    dockerfilePath: ./deploy/Dockerfile
+    dockerCommand: celery -A sortex_cloud.queue.celery_app worker --loglevel=INFO --concurrency=1
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sortex-queue
+          property: connectionString
+      - key: SUPABASE_URL
+        value: https://ikdxchgcauhjznhofvog.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: sortex-assets
+      - key: SORTEX_API_KEYS_JSON
+        sync: false
+      - key: MAX_UPLOAD_MB
+        value: "12"
+      - key: MODEL_CONFIDENCE_THRESHOLD
+        value: "0.65"
+  - type: keyvalue
+    name: sortex-queue
+    plan: free
+    region: singapore
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
