@@ -29,7 +29,7 @@ Copy .env.example to .env and replace every placeholder with unique secrets. The
 
     docker compose -f deploy/docker-compose.yml up --build
 
-API docs are at http://localhost:8000/docs and health at http://localhost:8000/health.
+Browser control panel: http://localhost:8000/portal/ · API docs: http://localhost:8000/docs · health: http://localhost:8000/health.
 
 Install server and edge extras for local development:
 
