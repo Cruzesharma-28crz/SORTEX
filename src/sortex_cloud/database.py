@@ -1,15 +1,24 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
 from sortex_cloud.config import get_settings
-class Base(DeclarativeBase): pass
+
+
+class Base(DeclarativeBase):
+    pass
+
+
 class Dataset(Base):
     __tablename__ = "datasets"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     owner: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class ImageRecord(Base):
     __tablename__ = "images"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
@@ -20,6 +29,8 @@ class ImageRecord(Base):
     path: Mapped[str] = mapped_column(Text, nullable=False)
     uploader: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class TrainingJob(Base):
     __tablename__ = "training_jobs"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
@@ -31,6 +42,8 @@ class TrainingJob(Base):
     model_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_by: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class ModelVersion(Base):
     __tablename__ = "model_versions"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
@@ -43,6 +56,16 @@ class ModelVersion(Base):
     metrics_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 _engine = create_engine(get_settings().database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
-def init_db() -> None: Base.metadata.create_all(bind=_engine)
+
+
+def init_db() -> None:
+    Base.metadata.create_all(bind=_engine)
+    # The API connects with a server-side database credential. Keep all public
+    # tables closed to browser roles; the backend never exposes DB credentials.
+    with _engine.begin() as connection:
+        for table in Base.metadata.sorted_tables:
+            connection.execute(text(f'ALTER TABLE "{table.name}" ENABLE ROW LEVEL SECURITY'))
