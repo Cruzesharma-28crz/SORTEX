@@ -2,7 +2,6 @@ import json
 import shutil
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
 
 from sqlalchemy import select
 
