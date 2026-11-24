@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SORTEX Control Room</title><link rel="stylesheet" href="/portal/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header><div class="mark">S</div><div><p class="eyebrow">HYBRID AI PLATFORM</p><h1>SORTEX <span>Control Room</span></h1></div><span class="status" id="health">Checking API</span></header>
+    <section class="intro"><p class="eyebrow">DATA IN. MODELS OUT.</p><h2>Train together.<br><em>Deploy intelligently.</em></h2><p>Contribute waste images, launch training jobs and review model versions before they reach the Raspberry Pi.</p></section>
+    <section class="panel credentials"><h3>Connection</h3><label>API address<input id="api" value="" placeholder="https://your-sortex-api.example.com"></label><label>Personal access key<input id="key" type="password" autocomplete="off" placeholder="Paste your scoped API key"></label><p class="hint">Your key stays in this page's memory and is not saved. Never use a master or service-role key here.</p><button id="connect">Connect</button></section>
+    <section class="grid">
+      <article class="panel"><div class="section-head"><span class="number">01</span><h3>Dataset</h3></div><label>Dataset name<input id="datasetName" placeholder="School waste collection"></label><button id="createDataset">Create dataset</button><label>Existing dataset<select id="datasetSelect"><option value="">Connect to load datasets</option></select></label></article>
+      <article class="panel"><div class="section-head"><span class="number">02</span><h3>Contribute images</h3></div><label>Waste category<select id="label"><option value="dry_waste">Dry waste</option><option value="e_waste">E-waste</option><option value="wet_waste">Wet waste</option></select></label><label>Dataset split<select id="split"><option value="train">Training</option><option value="val">Validation</option><option value="test">Test</option></select></label><label>Image<input id="image" type="file" accept="image/jpeg,image/png,image/webp"></label><button id="upload">Upload image</button></article>
+      <article class="panel"><div class="section-head"><span class="number">03</span><h3>Training lab</h3></div><label>Epochs<input id="epochs" type="number" min="1" max="200" value="30"></label><label>Batch size<input id="batch" type="number" min="1" max="256" value="32"></label><button id="train">Start training</button><p class="hint">Training runs on the cloud worker. It does not block image classification on the Pi.</p></article>
+      <article class="panel"><div class="section-head"><span class="number">04</span><h3>Model registry</h3></div><button class="secondary" id="refreshModels">Refresh models</button><div id="models" class="models"><p class="muted">Connect with a trainer or admin key to view models.</p></div></article>
+    </section>
+    <section class="panel console"><div class="section-head"><span class="number">LIVE</span><h3>Activity feed</h3><button class="secondary small" id="clear">Clear</button></div><div id="feed" aria-live="polite"><p class="muted">SORTEX system messages will appear here.</p></div></section>
+    <footer> SORTEX research prototype · Local inference remains available offline after model synchronization.</footer>
+  </main>
+  <script src="/portal/app.js"></script>
+</body></html>
