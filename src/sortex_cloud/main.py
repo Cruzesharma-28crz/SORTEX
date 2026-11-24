@@ -54,7 +54,8 @@ async def upload_image(dataset_id: str, label: str, file: UploadFile = File(...)
 @app.get("/v1/datasets")
 def list_datasets(principal: Principal = Depends(contributor)) -> list[dict]:
     with SessionLocal() as db:
-        query = select(Dataset) if principal.role in {"trainer", "admin"} else select(Dataset).where(Dataset.owner == principal.owner)\n        rows = db.scalars(query).all()
+        query = select(Dataset) if principal.role in {"trainer", "admin"} else select(Dataset).where(Dataset.owner == principal.owner)
+        rows = db.scalars(query).all()
         return [{"id": row.id, "name": row.name, "created_at": row.created_at.isoformat()} for row in rows]
 @app.post("/v1/training", status_code=202)
 def start_training(payload: TrainingCreate, principal: Principal = Depends(trainer)) -> dict:
