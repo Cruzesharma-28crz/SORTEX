@@ -39,7 +39,7 @@ Each dataset is stored at STORAGE_ROOT/datasets/<dataset-id>/{train,val,test}/<c
 
 1. Copy .env.example to .env and replace all placeholders with unique random secrets.
 2. Run docker compose -f deploy/docker-compose.yml up --build.
-3. API docs: http://localhost:8000/docs; health: http://localhost:8000/health.
+3. Portal: http://localhost:8000/portal/; API docs: http://localhost:8000/docs; health: http://localhost:8000/health.
 4. Install edge package on Pi with pip install -e '.[edge]'; set SORTEX_API_URL and SORTEX_DEVICE_API_KEY.
 5. Run sortex-edge sync, then sortex-edge predict path/to/image.jpg offline.
 
