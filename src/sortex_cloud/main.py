@@ -12,7 +12,7 @@ from sortex_cloud.config import get_settings
 from sortex_cloud.database import Dataset, ImageRecord, ModelVersion, SessionLocal, TrainingJob, init_db
 from sortex_cloud.queue import celery_app
 from sortex_cloud.storage import dataset_dir, save_upload
-app = FastAPI(title="SORTEX Cloud API", version="0.1.0")
+app = FastAPI(title="SORTEX Cloud API", version="0.2.0")
 @app.on_event("startup")
 def startup() -> None: init_db()
 class DatasetCreate(BaseModel): name: str = Field(min_length=2, max_length=120)
@@ -21,7 +21,7 @@ class TrainingCreate(BaseModel):
     epochs: int = Field(default=30, ge=1, le=200)
     batch_size: int = Field(default=32, ge=1, le=256)
 @app.get("/health")
-def health() -> dict: return {"status": "ok", "service": "sortex-cloud-api", "version": "0.1.0"}
+def health() -> dict: return {"status": "ok", "service": "sortex-cloud-api", "version": "0.2.0"}
 @app.get("/v1/classes")
 def classes() -> dict: return {"classes": list(CLASSES)}
 @app.post("/v1/datasets", status_code=201)
