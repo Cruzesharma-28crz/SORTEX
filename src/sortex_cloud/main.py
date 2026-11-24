@@ -46,7 +46,7 @@ async def upload_image(dataset_id: str, label: str, file: UploadFile = File(...)
     with SessionLocal() as db:
         dataset = db.get(Dataset, dataset_id)
         if dataset is None: raise HTTPException(status_code=404, detail="Dataset not found")
-        if dataset.owner != principal.owner and principal.role != "admin": raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
+        if dataset.owner != principal.owner and principal.role not in {"admin", "trainer"}: raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
         path, checksum = save_upload(dataset_id, split, label, file.filename or "image.jpg", content)
         record = ImageRecord(dataset_id=dataset_id, label=label, split=split, filename=path.name, path=str(path), uploader=principal.owner)
         db.add(record); db.commit()
@@ -61,7 +61,7 @@ def start_training(payload: TrainingCreate, principal: Principal = Depends(train
     with SessionLocal() as db:
         dataset = db.get(Dataset, payload.dataset_id)
         if dataset is None: raise HTTPException(status_code=404, detail="Dataset not found")
-        if dataset.owner != principal.owner and principal.role != "admin": raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
+        if dataset.owner != principal.owner and principal.role not in {"admin", "trainer"}: raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
         root = dataset_dir(dataset.id)
         missing = [part for part in ("train", "val") if not any((root / part / label).glob("*") for label in CLASSES)]
         if missing: raise HTTPException(status_code=422, detail=f"Missing images in: {', '.join(missing)}")
