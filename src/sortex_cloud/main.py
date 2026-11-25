@@ -1,10 +1,13 @@
 import json
 import os
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.background import BackgroundTask
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -16,7 +19,7 @@ from sortex_cloud.database import Dataset, ImageRecord, ModelVersion, SessionLoc
 from sortex_cloud.queue import celery_app
 from sortex_cloud.storage import read_object, save_upload
 
-app = FastAPI(title="SORTEX Cloud API", version="0.3.0")
+app = FastAPI(title="SORTEX Cloud API", version="1.0.0")
 
 
 @app.on_event("startup")
@@ -36,7 +39,7 @@ class TrainingCreate(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "sortex-cloud-api", "version": "0.3.0"}
+    return {"status": "ok", "service": "sortex-cloud-api", "version": "1.0.0"}
 
 
 @app.get("/ready")
@@ -131,6 +134,67 @@ def list_datasets(principal: Principal = Depends(contributor)) -> list[dict]:
         return result
 
 
+@app.get("/v1/datasets/{dataset_id}/export")
+def export_dataset(dataset_id: str, principal: Principal = Depends(trainer)) -> FileResponse:
+    """Download a dataset as train/val/test class folders for Colab training."""
+    with SessionLocal() as db:
+        dataset = db.get(Dataset, dataset_id)
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        if dataset.owner != principal.owner and principal.role not in {"admin", "trainer"}:
+            raise HTTPException(status_code=403, detail="Dataset belongs to another contributor")
+        records = db.scalars(
+            select(ImageRecord).where(ImageRecord.dataset_id == dataset_id)
+        ).all()
+        if not records:
+            raise HTTPException(status_code=422, detail="Dataset has no images yet")
+
+        counts = {
+            split: {
+                label: sum(1 for record in records if record.split == split and record.label == label)
+                for label in CLASSES
+            }
+            for split in ("train", "val", "test")
+        }
+        temp = tempfile.NamedTemporaryFile(prefix="sortex-dataset-", suffix=".zip", delete=False)
+        temp_path = Path(temp.name)
+        temp.close()
+        try:
+            with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for record in records:
+                    if record.split not in {"train", "val", "test"} or record.label not in CLASSES:
+                        continue
+                    image_bytes = read_object(record.path)
+                    safe_name = Path(record.filename).name
+                    archive.writestr(f"{record.split}/{record.label}/{safe_name}", image_bytes)
+                archive.writestr(
+                    "manifest.json",
+                    json.dumps({
+                        "dataset_id": dataset.id,
+                        "dataset_name": dataset.name,
+                        "model_family": "SORTEX 1.0",
+                        "classes": list(CLASSES),
+                        "counts": counts,
+                    }, indent=2),
+                )
+        except FileNotFoundError as exc:
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=502, detail="A dataset image is missing from storage") from exc
+        except RuntimeError as exc:
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=502, detail="Dataset storage is unavailable") from exc
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
+
+    return FileResponse(
+        path=temp_path,
+        media_type="application/zip",
+        filename=f"sortex-dataset-{dataset_id}.zip",
+        background=BackgroundTask(temp_path.unlink, missing_ok=True),
+    )
+
+
 @app.post("/v1/training", status_code=202)
 def start_training(payload: TrainingCreate, principal: Principal = Depends(trainer)) -> dict:
     with SessionLocal() as db:
@@ -172,7 +236,7 @@ def list_models(principal: Principal = Depends(trainer)) -> list[dict]:
     with SessionLocal() as db:
         rows = db.scalars(select(ModelVersion).order_by(ModelVersion.created_at.desc())).all()
         return [
-            {"id": row.id, "version": row.version, "status": row.status, "sha256": row.sha256, "metrics": json.loads(row.metrics_json)}
+            {"id": row.id, "name": "SORTEX 1.0", "version": row.version, "status": row.status, "sha256": row.sha256, "metrics": json.loads(row.metrics_json)}
             for row in rows
         ]
 
@@ -190,7 +254,7 @@ def approve_model(model_id: str, principal: Principal = Depends(admin)) -> dict:
         model.status = "approved"
         model.approved_at = datetime.now(timezone.utc)
         db.commit()
-        return {"id": model.id, "version": model.version, "status": model.status}
+        return {"id": model.id, "name": "SORTEX 1.0", "version": model.version, "status": model.status}
 
 
 @app.get("/v1/devices/model")
@@ -201,6 +265,7 @@ def device_model(principal: Principal = Depends(device)) -> dict:
             return {"available": False}
         return {
             "available": True,
+            "name": "SORTEX 1.0",
             "model_id": model.id,
             "version": model.version,
             "sha256": model.sha256,
