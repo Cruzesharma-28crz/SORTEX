@@ -1,8 +1,6 @@
 import json
 import shutil
 import zipfile
-from datetime import datetime, timezone
-
 from sqlalchemy import select
 
 from sortex_cloud.config import get_settings
