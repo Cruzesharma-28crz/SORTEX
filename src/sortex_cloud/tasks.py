@@ -1,8 +1,6 @@
 import json
 import shutil
 import zipfile
-from datetime import datetime, timezone
-
 from sqlalchemy import select
 
 from sortex_cloud.config import get_settings
@@ -40,12 +38,17 @@ def train_dataset(job_id: str) -> dict:
         train(str(root), str(checkpoint), epochs=epochs, batch_size=batch_size)
         has_test = all(any((root / "test" / label).glob("*")) for label in ("dry_waste", "e_waste", "wet_waste"))
         metrics = evaluate(str(root / "test"), str(checkpoint)) if has_test else {}
-        version = f"0.1.{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{job_id[:8]}"
         folder = output / job_id
         folder.mkdir(parents=True, exist_ok=True)
+        with SessionLocal() as db:
+            existing_versions = db.scalars(
+                select(ModelVersion).where(ModelVersion.version.like("1.0.%"))
+            ).all()
+            version = f"1.0.{len(existing_versions)}"
         shutil.copy2(checkpoint, folder / "model.pt")
         metadata = {
             "format_version": 1,
+            "model_name": "SORTEX 1.0",
             "sortex_version": "0.3.0",
             "model_version": version,
             "classes": ["dry_waste", "e_waste", "wet_waste"],
@@ -76,7 +79,7 @@ def train_dataset(job_id: str) -> dict:
             db.flush()
             job.status, job.model_id = "completed", model.id
             db.commit()
-        return {"job_id": job_id, "model_version": version, "status": "pending_review"}
+        return {"job_id": job_id, "model_name": "SORTEX 1.0", "model_version": version, "status": "pending_review"}
     except Exception as exc:
         with SessionLocal() as db:
             job = db.get(TrainingJob, job_id)
